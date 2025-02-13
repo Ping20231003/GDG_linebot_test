@@ -68,7 +68,7 @@ def handle_message(event: Event):
             reply_text = get_nearby_restaurants()
         elif user_message == "課表":
             reply_text = "這是你的課表～"
-        elif user_message == "股票":
+        elif user_message == "台積電股票":
             try:
                 image_url = txt_to_img_url()
                 if not image_url:
