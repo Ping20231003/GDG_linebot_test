@@ -4,17 +4,20 @@ from flask import Flask, request, abort
 from linebot.v3.webhook import WebhookHandler, Event
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging.models import TextMessage
-from linebot import LineBotApi, WebhookHandler
+from linebot import LineBotApi
 from linebot.models import (
     MessageEvent, 
     TextMessage, 
     TextSendMessage,
-    ImageSendMessage)
+    ImageSendMessage
+)
 from linebot.exceptions import InvalidSignatureError
 from places import get_nearby_restaurants
 from stock import txt_to_img_url
 import logging
 import google.generativeai as genai
+
+# 配置 Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-pro")
 
@@ -37,7 +40,6 @@ handler = WebhookHandler(line_secret)
 
 # 創建 Flask 應用
 app = Flask(__name__)
-
 app.logger.setLevel(logging.DEBUG)
 
 # 設置一個路由來處理 LINE Webhook 的回調請求
@@ -71,40 +73,41 @@ def handle_message(event: Event):
         elif user_message == "課表":
             reply_text = "這是你的課表～"
         elif user_message == "台積電股票":
-        try:
-            image_url = txt_to_img_url()
-            if not image_url:
-                error_message = f"抱歉，沒有取得股票趨勢圖，{image_url}。"
+            try:
+                image_url = txt_to_img_url()
+                if not image_url:
+                    error_message = f"抱歉，沒有取得股票趨勢圖，{image_url}。"
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextMessage(text=error_message)
+                    )
+                    return
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    ImageSendMessage(
+                        original_content_url=image_url,
+                        preview_image_url=image_url
+                    )
+                )
+            except Exception as e:
+                error_message = f"抱歉，無法生成股票趨勢圖，錯誤原因：{e}"
                 line_bot_api.reply_message(
                     event.reply_token,
                     TextMessage(text=error_message)
                 )
-                return
-            line_bot_api.reply_message(
-                event.reply_token,
-                ImageSendMessage(
-                    original_content_url=image_url,
-                    preview_image_url=image_url
-                )
-            )
-        except Exception as e:
-            error_message = f"抱歉，無法生成股票趨勢圖，錯誤原因：{e}"
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextMessage(text=error_message)
-            )
-        return
-
+            return
         else:
-    response = model.generate_content(user_message) # 傳送使用者的問題給 Gemini
-    reply_text = response.text if response else "抱歉，我無法回答這個問題。"
-
-
+            try:
+                response = model.generate_content(user_message)  # 傳送使用者的問題給 Gemini
+                reply_text = response.text if response else "抱歉，我無法回答這個問題。"
+            except Exception as e:
+                reply_text = f"抱歉，無法生成回應，錯誤原因：{e}"
 
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=reply_text)
         )
+
 # 應用程序入口點
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
