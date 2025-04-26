@@ -13,7 +13,7 @@ def get_nearby_restaurants():
     latitude, longitude, radius = 25.033964, 121.564472, 1000  # 台北101
     url = (f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
            f"?location={latitude},{longitude}&radius={radius}&type=restaurant&key={API_KEY}&language=zh-TW")
-
+    
     response = requests.get(url).json()
     results = []
 
@@ -27,4 +27,3 @@ def get_nearby_restaurants():
             results.append(f"🍽 {name} | ⭐ {rating}\n📍 {address}\n🔗 {map_url}")
 
     return "\n\n".join(results) if results else "找不到餐廳資訊 😢"
-
