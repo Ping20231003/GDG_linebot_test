@@ -4,22 +4,20 @@ from flask import Flask, request, abort
 from linebot.v3.webhook import WebhookHandler, Event
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging.models import TextMessage
-from linebot import LineBotApi
+from linebot import LineBotApi, WebhookHandler
 from linebot.models import (
     MessageEvent, 
     TextMessage, 
     TextSendMessage,
-    ImageSendMessage
-)
+    ImageSendMessage)
 from linebot.exceptions import InvalidSignatureError
+import logging
+
+# 引入
 from places import get_nearby_restaurants
 from stock import txt_to_img_url
-import logging
-import google.generativeai as genai
 
-# 配置 Gemini API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-pro")
+import google.generativeai as genai
 
 # 加載 .env 文件中的變數
 load_dotenv()
@@ -27,6 +25,9 @@ load_dotenv()
 # 從環境變數中讀取 LINE 的 Channel Access Token 和 Channel Secret
 line_token = os.getenv('LINE_TOKEN')
 line_secret = os.getenv('LINE_SECRET')
+
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-pro")
 
 # 檢查是否設置了環境變數
 if not line_token or not line_secret:
@@ -40,6 +41,7 @@ handler = WebhookHandler(line_secret)
 
 # 創建 Flask 應用
 app = Flask(__name__)
+
 app.logger.setLevel(logging.DEBUG)
 
 # 設置一個路由來處理 LINE Webhook 的回調請求
@@ -67,7 +69,6 @@ def handle_message(event: Event):
         user_message = event.message.text  # 使用者的訊息
         app.logger.info(f"收到的訊息: {user_message}")
 
-        # 使用 GPT 生成回應
         if user_message == "附近的餐廳":
             reply_text = get_nearby_restaurants()
         elif user_message == "課表":
@@ -97,17 +98,14 @@ def handle_message(event: Event):
                 )
             return
         else:
-            try:
-                response = model.generate_content(user_message)  # 傳送使用者的問題給 Gemini
-                reply_text = response.text if response else "抱歉，我無法回答這個問題。"
-            except Exception as e:
-                reply_text = f"抱歉，無法生成回應，錯誤原因：{e}"
+            response = model.generate_content(user_message) # 傳送使用者的問題給 Gemini
+            reply_text = response.text if response else "抱歉，我無法回答這個問題。"
+         
 
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=reply_text)
         )
-
 # 應用程序入口點
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
